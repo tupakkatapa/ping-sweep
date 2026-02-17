@@ -1,42 +1,43 @@
 {
   inputs = {
-    flake-parts.url = "github:hercules-ci/flake-parts";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    treefmt-nix.url = "github:numtide/treefmt-nix";
+    treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, ... }@inputs:
-    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = inputs.nixpkgs.lib.systems.flakeExposed;
-      imports = [
-        inputs.flake-parts.flakeModules.easyOverlay
-      ];
-
-      perSystem =
-        { pkgs
-        , system
-        , ...
-        }:
-        let
-          packages = {
-            ping-sweep = pkgs.callPackage ./package.nix { };
-          };
-        in
-        {
-          # Overlays
-          _module.args.pkgs = import inputs.nixpkgs {
-            inherit system;
-            overlays = [
-              self.overlays.default
-            ];
-            config = { };
-          };
-          overlayAttrs = packages;
-
-          # Development shell -> 'nix develop' or 'direnv allow'
-          devShells.default = pkgs.callPackage ./shell.nix { inherit pkgs; };
-
-          # Custom packages and entrypoint aliases -> 'nix run' or 'nix build'
-          packages = packages // { default = packages.ping-sweep; };
+  outputs = { self, nixpkgs, treefmt-nix, ... }:
+    let
+      eachSystem = f: nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed (system: f nixpkgs.legacyPackages.${system});
+      treefmtFor = pkgs: treefmt-nix.lib.evalModule pkgs {
+        projectRootFile = "flake.nix";
+        programs = {
+          nixpkgs-fmt.enable = true;
+          deadnix.enable = true;
+          statix.enable = true;
+          rustfmt.enable = true;
         };
+      };
+    in
+    {
+      packages = eachSystem (pkgs: {
+        ping-sweep = pkgs.callPackage ./package.nix { };
+        default = self.packages.${pkgs.system}.ping-sweep;
+      });
+
+      devShells = eachSystem (pkgs: {
+        default = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            rustc
+            rust-analyzer
+            rustfmt
+            clippy
+            cargo
+          ];
+        };
+      });
+
+      formatter = eachSystem (pkgs:
+        (treefmtFor pkgs).config.build.wrapper
+      );
     };
 }

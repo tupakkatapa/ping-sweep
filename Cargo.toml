@@ -1,11 +1,12 @@
 [package]
 name = "ping-sweep"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-clap = "4.5.27"
-futures = "0.3.31"
+clap = "4.5.59"
 ipnetwork = "0.21.1"
-tokio = { version = "1.43", features = ["full"] }
-
+serde_json = "1.0.149"
+io-uring = "0.7.11"
+libc = "0.2.182"
+socket2 = "0.6.2"

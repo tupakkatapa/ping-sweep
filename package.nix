@@ -11,7 +11,6 @@ rustPlatform.buildRustPackage {
   src = lib.sourceByRegex ./. [
     "^Cargo.toml$"
     "^Cargo.lock$"
-    "^example.toml$"
     "^src.*$"
   ];
 
